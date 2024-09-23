@@ -1,25 +1,34 @@
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/models/book_style.dart';
+import 'package:anx_reader/models/read_theme.dart';
+import 'package:anx_reader/utils/js/convert_dart_color_to_js.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-String webviewInitialVariable(
-  String allAnnotations,
+void webviewInitialVariable(
+  InAppWebViewController controller,
   String url,
-  String cfi,
-  BookStyle bookStyle,
-  String textColor,
-  String backgroundColor, {
+  String cfi, {
+  BookStyle? bookStyle,
+  int? textIndent,
+  String? textColor,
+  String? fontName,
+  String? fontPath,
+  String? backgroundColor,
   bool? importing,
 }) {
-  importing ?? false;
-  String fontName = Prefs().font.name;
-  String fontPath = Prefs().font.path;
+  ReadTheme readTheme = Prefs().readTheme;
+  bookStyle ??= Prefs().bookStyle;
+  textColor ??= convertDartColorToJs(readTheme.textColor);
+  fontName ??= Prefs().font.name;
+  fontPath ??= Prefs().font.path;
+  backgroundColor ??= convertDartColorToJs(readTheme.backgroundColor);
+  importing ??= false;
 
-  return '''
+  final script = '''
      console.log(navigator.userAgent)
      const importing = $importing
-     const allAnnotations = $allAnnotations
      const url = '$url'
-     let cfi = '$cfi'
+     let initialCfi = '$cfi'
      let style = {
          fontSize: ${bookStyle.fontSize},
          fontName: '$fontName',
@@ -27,7 +36,7 @@ String webviewInitialVariable(
          letterSpacing: ${bookStyle.letterSpacing},
          spacing: ${bookStyle.lineHeight},
          paragraphSpacing: ${bookStyle.paragraphSpacing},
-         textIndent: 0,
+         textIndent: ${bookStyle.indent},
          fontColor: '#$textColor',
          backgroundColor: '#$backgroundColor',
          topMargin: ${bookStyle.topMargin},
@@ -38,4 +47,10 @@ String webviewInitialVariable(
          pageTurnStyle: '${Prefs().pageTurnStyle.name}',
      }
   ''';
+  controller.addJavaScriptHandler(
+      handlerName: 'webviewInitialVariable',
+      callback: (args) async {
+        await controller.evaluateJavascript(source: script);
+        return null;
+      });
 }

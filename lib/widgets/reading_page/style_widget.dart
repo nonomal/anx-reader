@@ -57,14 +57,18 @@ class _StyleWidgetState extends State<StyleWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        widgetTitle(L10n.of(context).reading_page_style, ReadingSettings.theme),
-        sliders(),
-        fontAndPageTurn(),
-        const Divider(),
-        themeSelector(),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          widgetTitle(
+              L10n.of(context).reading_page_style, ReadingSettings.theme),
+          sliders(),
+          fontAndPageTurn(),
+          const Divider(),
+          themeSelector(),
+        ],
+      ),
     );
   }
 
@@ -87,16 +91,27 @@ class _StyleWidgetState extends State<StyleWidget> {
         path: 'system',
       ),
     ];
-    fontDir.listSync().forEach((element) {
-      if (element is File) {
-        fontList.add(FontModel(
-          label: getFontNameFromFile(element),
-          name: element.path.split('/').last.split('.').first,
-          path:
-              'http://localhost:${Server().port}/fonts/${element.path.split('/').last}',
-        ));
-      }
-    });
+    // fontDir.listSync().forEach((element) {
+    //   if (element is File) {
+    //     fontList.add(FontModel(
+    //       label: getFontNameFromFile(element),
+    //       name: 'customFont' + ,
+    //       path:
+    //           'http://localhost:${Server().port}/fonts/${element.path.split('/').last}',
+    //     ));
+    //   }
+    // });
+    // name = 'customFont' + index
+    for (int i = 0; i < fontDir.listSync().length; i++) {
+      File element = fontDir.listSync()[i] as File;
+      fontList.add(FontModel(
+        label: getFontNameFromFile(element),
+        name: 'customFont$i',
+        path:
+            'http://localhost:${Server().port}/fonts/${element.path.split('/').last}',
+      ));
+    }
+
     return fontList;
   }
 
@@ -106,7 +121,7 @@ class _StyleWidgetState extends State<StyleWidget> {
         child: DropdownMenu<PageTurn>(
           label: Text(L10n.of(context).reading_page_page_turning_method),
           initialSelection: Prefs().pageTurnStyle,
-          expandedInsets: const EdgeInsets.all(10),
+          expandedInsets: const EdgeInsets.only(right: 5),
           inputDecorationTheme: InputDecorationTheme(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(50),
@@ -129,7 +144,7 @@ class _StyleWidgetState extends State<StyleWidget> {
       Expanded(
         child: DropdownMenu<FontModel>(
           label: Text(L10n.of(context).font),
-          expandedInsets: const EdgeInsets.all(10),
+          expandedInsets: const EdgeInsets.only(left: 5),
           initialSelection: Prefs().font,
           inputDecorationTheme: InputDecorationTheme(
             border: OutlineInputBorder(
@@ -225,10 +240,10 @@ class _StyleWidgetState extends State<StyleWidget> {
                 Prefs().saveBookStyleToPrefs(bookStyle);
               });
             },
-            min: 0.4,
-            max: 3.0,
-            divisions: 13,
-            label: bookStyle.fontSize.toStringAsFixed(1),
+            min: 0.5,
+            max: 2.0,
+            divisions: 30,
+            label: bookStyle.fontSize.toStringAsFixed(2),
           ),
         ),
       ],

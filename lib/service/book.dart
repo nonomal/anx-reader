@@ -1,13 +1,10 @@
 import 'dart:io';
 
-import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/book.dart';
-import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
-import 'package:anx_reader/utils/js/convert_dart_color_to_js.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/utils/import_book.dart';
 import 'package:anx_reader/utils/toast/common.dart';
@@ -122,11 +119,6 @@ Future<void> getBookMetadata(
   String filePath = file.path;
   Server().tempFile = file;
 
-  ReadTheme readTheme = Prefs().readTheme;
-  String backgroundColor = convertDartColorToJs(readTheme.backgroundColor);
-  String textColor = convertDartColorToJs(readTheme.textColor);
-
-  String allAnnotations = 'null';
   String cfi = '';
 
   String indexHtmlPath =
@@ -135,16 +127,7 @@ Future<void> getBookMetadata(
   HeadlessInAppWebView webview = HeadlessInAppWebView(
     initialUrlRequest: URLRequest(url: WebUri(indexHtmlPath)),
     onLoadStart: (controller, url) async {
-      controller.evaluateJavascript(
-          source: webviewInitialVariable(
-        allAnnotations,
-        filePath,
-        cfi,
-        Prefs().bookStyle,
-        textColor,
-        backgroundColor,
-        importing: true,
-      ));
+      webviewInitialVariable(controller, filePath, cfi, importing: true);
       controller.addJavaScriptHandler(
           handlerName: 'onMetadata',
           callback: (args) async {

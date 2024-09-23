@@ -15,6 +15,7 @@ class History extends EventTarget {
         this.#arr[++this.#index] = x
         this.#arr.length = this.#index + 1
         this.dispatchEvent(new Event('index-change'))
+        this.dispatchEvent(new CustomEvent('pushstate', { detail: x }))
     }
     replaceState(x) {
         const index = this.#index
@@ -191,7 +192,7 @@ export class View extends HTMLElement {
 
         this.#handleLinks(doc, index)
         this.#handleClick(doc)
-
+        this.#handleImage(doc)
         this.#emit('load', { doc, index })
     }
     #handleLinks(doc, index) {
@@ -212,6 +213,17 @@ export class View extends HTMLElement {
                     .catch(e => console.error(e))
             })
     }
+
+    #handleImage(doc) {
+       for (const img of doc.querySelectorAll('img')) {
+            img.addEventListener('click', e => {
+                e.preventDefault()
+                e.stopPropagation()
+                this.#emit('click-image', { img })
+            })
+       }
+    }
+
     #handleClick(doc) {
         doc.addEventListener('click', e => {
             let { clientX, clientY } = e
@@ -246,7 +258,7 @@ export class View extends HTMLElement {
                     return
                 }
                 const range = doc ? anchor(doc) : anchor
-                overlayer.add(value, range, Overlayer.outline)
+                overlayer.add(value, range, Overlayer.outline, { color: '#39c5bbaa' });
             }
             return
         }
@@ -410,6 +422,7 @@ export class View extends HTMLElement {
         }
     }
     async * search(opts) {
+        console.log('search', opts)
         this.clearSearch()
         const { searchMatcher } = await import('./search.js')
         const { query, index } = opts

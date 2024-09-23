@@ -1,18 +1,24 @@
 import 'package:flutter/services.dart';
 
 void hideStatusBar() {
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-  SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) =>
-      Future.delayed(const Duration(seconds: 1), () {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      }));
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [],
+  );
 }
 
 void showStatusBar() {
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) =>
-      // Future.delayed(const Duration(seconds: 1), () {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge)
-      // })
-      );
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: SystemUiOverlay.values,
+  );
+}
+
+void onlyStatusBar() {
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [
+      SystemUiOverlay.top,
+    ],
+  );
 }

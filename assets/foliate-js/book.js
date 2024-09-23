@@ -1,3 +1,42 @@
+//  //////// use for test //////////
+//  const importing = false
+//  const allAnnotations = [
+//      // { id: 1, type: 'highlight', value: "epubcfi(/6/6!/4/2,/1:3,/1:4)", color: 'blue', note: 'this is' },
+//      // { id: 2, type: 'highlight', value: "epubcfi(/6/6!/4/576,/1:2,/1:3)", color: 'yellow', note: 'this is' },
+//      // { id: 3, type: 'underline', value: "epubcfi(/6/4!/4/4,/1:294,/1:301)", color: 'red', note: 'this is' },
+//  ]
+//  let url = '../local/dyx.epub'
+//  let initialCfi = "epubcfi(/6/12!/4,/2[CHP3],/8/1:29)"
+// //  let initialCfi = null
+//  let style = {
+//      fontSize: 1.2,
+//      fontName: 'book',
+//      letterSpacing: 0,
+//      spacing: 1.7,
+//      paragraphSpacing: 1,
+//      textIndent: 5,
+//      fontColor: '#0000ff',
+//      backgroundColor: '#ffffff',
+//      topMargin: 100,
+//      bottomMargin: 100,
+//      sideMargin: 5,
+//      justify: true,
+//      hyphenate: true,
+//      // scroll: false,
+//      // animated: true,
+//      pageTurnStyle: 'slide'
+//  }
+//  window.flutter_inappwebview = {}
+//  window.flutter_inappwebview.callHandler = (name, data) => {
+//      console.log(name, data)
+//  }
+//  setTimeout(() => {
+//      reader.renderAnnotation()
+//  }, 1000)
+//  ///////////////////////////////
+
+console.log('book.js')
+
 import './view.js'
 import { FootnoteHandler } from './footnotes.js'
 import { Overlayer } from './overlayer.js'
@@ -91,7 +130,8 @@ const handleSelection = (view, doc, index) => {
         newSel.addRange(range)
         text = newSel.toString()
     }
-    onSelectionEnd({ index, range, lang, cfi, pos, text });
+    // onSelectionEnd({ index, range, lang, cfi, pos, text });
+    return { index, range, lang, cfi, pos, text }
 }
 
 const setSelectionHandler = (view, doc, index) => {
@@ -229,35 +269,41 @@ const getCSS = ({ fontSize,
     justify,
     hyphenate }) => {
 
-    fontName = (fontName === 'system' ? 'system-ui' : 'AnxCustomFont')
+    const fontFamily = fontName === 'book' ? '' :
+        fontName === 'system' ? 'font-family: system-ui !important;' :
+            `font-family: ${fontName} !important;`
+
 
     return `
     @namespace epub "http://www.idpf.org/2007/ops";
     @font-face {
-      font-family: 'AnxCustomFont';
+      font-family: ${fontName};
       src: url('${fontPath}');
       font-display: swap;
     }
     html {
         color: ${fontColor} !important;
         background: none !important;
-        background-color: ${backgroundColor} !important;
-        font-size: ${fontSize}em !important;
+        // background-color: ${backgroundColor} !important;
+        background-color: transparent !important;
         letter-spacing: ${letterSpacing}px;
+        font-size: ${fontSize}em;
     }
-    /* https://github.com/whatwg/html/issues/5426 */
-    @media (prefers-color-scheme: dark) {
-        a:link {
-            color: lightblue !important;
-        }
+
+    body {
+        background: none !important;
+        background-color: transparent;
+    }
+    a:link {
+        color: #66ccff !important;
     }
     * {
-        color: ${fontColor} !important;
-        font-family: ${fontName} !important;
+        line-height: ${spacing}em !important;
+        ${fontFamily}
     }
-    p, li, blockquote, dd, div{
+    p, li, blockquote, dd, div, font {
         color: ${fontColor} !important;
-        line-height: ${spacing} !important;
+        // line-height: ${spacing} !important;
         padding-bottom: ${paragraphSpacing}em !important;
         text-align: ${justify ? 'justify' : 'start'};
         -webkit-hyphens: ${hyphenate ? 'auto' : 'manual'};
@@ -288,11 +334,53 @@ const getCSS = ({ fontSize,
 
 const footnoteDialog = document.getElementById('footnote-dialog')
 footnoteDialog.addEventListener('close', () => {
-    // emit({ type: 'dialog-close' })
-    const view = footnoteDialog.querySelector('foliate-view')
-    view.close()
-    view.remove()
+    console.log('close')
 })
+const replaceFootnote = (view) => {
+    clearSelection()
+    footnoteDialog.querySelector('main').replaceChildren(view)
+
+    view.addEventListener('load', (e) => {
+        const { doc, index } = e.detail
+        globalThis.footnoteSelection = () => handleSelection(view, doc, index)
+        setTimeout(() => {
+            const dialog = document.getElementById('footnote-dialog')
+            const content = document.querySelector("#footnote-dialog > div > main > foliate-view")
+                .shadowRoot.querySelector("foliate-paginator")
+                .shadowRoot.querySelector("#container > div > iframe")
+
+
+            dialog.style.width = 'auto'
+            dialog.style.height = 'auto'
+
+            const contentWidth = content.scrollWidth
+            const contentHeight = content.scrollHeight
+
+            dialog.style.width = `${Math.min(Math.max(contentWidth, 200), window.innerWidth * 0.8)}px`
+            dialog.style.height = `${Math.min(Math.max(contentHeight, 100), window.innerHeight * 0.8)}px`
+        }, 0)
+    })
+
+    const { renderer } = view
+    renderer.setAttribute('flow', 'scrolled')
+    renderer.setAttribute('gap', '5%')
+    const footNoteStyle = {
+        fontSize: style.fontSize,
+        fontName: style.fontName,
+        fontPath: style.fontPath,
+        letterSpacing: style.letterSpacing,
+        spacing: style.spacing,
+        textIndent: style.textIndent,
+        fontColor: style.fontColor,
+        backgroundColor: 'transparent',
+        justify: true,
+        hyphenate: true,
+    }
+    renderer.setStyles(getCSS(footNoteStyle))
+    // set background color of dialog
+    // if #rrggbbaa, replace aa to ee
+    footnoteDialog.style.backgroundColor = style.backgroundColor.slice(0, 7) + 'ee'
+}
 footnoteDialog.addEventListener('click', e =>
     e.target === footnoteDialog ? footnoteDialog.close() : null)
 
@@ -305,50 +393,19 @@ class Reader {
     constructor() {
         this.#footnoteHandler.addEventListener('before-render', e => {
             const { view } = e.detail
+            this.setView(view)
 
-            view.addEventListener('link', e => {
-                e.preventDefault()
-                const { href } = e.detail
-                this.view.goTo(href)
-            })
-            view.addEventListener('external-link', e => {
-                e.preventDefault()
-                // emit({ type: 'external-link', ...e.detail })
-            })
-
-            footnoteDialog.querySelector('main').replaceChildren(view)
-
-            const { renderer } = view
-            renderer.setAttribute('flow', 'scrolled')
-            renderer.setAttribute('gap', '5%')
-            const footNoteStyle = {
-                fontSize: style.fontSize,
-                spacing: style.spacing,
-                fontColor: style.fontColor,
-                backgroundColor: 'transparent',
-                justify: true,
-                hyphenate: true,
-            }
-            renderer.setStyles(getCSS(footNoteStyle))
-            // set background color of dialog
-            // if #rrggbbaa, replace aa to dd
-            footnoteDialog.style.backgroundColor = style.backgroundColor.slice(0, 7) + 'ee'
-
-            footnoteDialog.style.overflow = 'hidden'
+            replaceFootnote(view)
 
         })
         this.#footnoteHandler.addEventListener('render', e => {
-            console.log(e.detail)
-            // const { href, hidden, type } = e.detail
             const { view } = e.detail
-            console.log(view)
-
 
             footnoteDialog.showModal()
         })
     }
     async open(file, cfi) {
-        this.view = await getView(file)
+        this.view = await getView(file, cfi)
 
         if (importing) return
 
@@ -359,7 +416,62 @@ class Reader {
         setStyle()
         if (!cfi)
             this.view.renderer.next()
+        this.setView(this.view)
+        await this.view.init({ lastLocation: cfi })
+    }
 
+    setView(view) {
+        view.addEventListener('create-overlay', e => {
+            const { index } = e.detail
+            const list = this.annotations.get(index)
+            if (list) for (const annotation of list)
+                this.view.addAnnotation(annotation)
+        })
+
+        view.addEventListener('draw-annotation', e => {
+            const { draw, annotation } = e.detail
+            const { color, type } = annotation
+            if (type === 'highlight') draw(Overlayer.highlight, { color })
+            else if (type === 'underline') draw(Overlayer.underline, { color })
+        })
+
+        view.addEventListener('show-annotation', e => {
+            const annotation = this.annotationsByValue.get(e.detail.value)
+            const pos = getPosition(e.detail.range)
+            onAnnotationClick({ annotation, pos })
+        })
+        view.addEventListener('external-link', e => {
+            e.preventDefault()
+            onExternalLink(e.detail)
+        })
+
+        view.addEventListener('link', e =>
+            this.#footnoteHandler.handle(this.view.book, e)?.catch(err => {
+                console.warn(err)
+                this.view.goTo(e.detail.href)
+            }))
+
+        view.history.addEventListener('pushstate', e => {
+            callFlutter('onPushState', {
+                canGoBack: view.history.canGoBack,
+                canGoForward: view.history.canGoForward
+            })
+        })
+        view.addEventListener('click-image', async e => {
+            console.log('click-image', e.detail.img.src)
+            const blobUrl = e.detail.img.src
+            const blob = await fetch(blobUrl).then(r => r.blob())
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onloadend = () => resolve(reader.result)
+                reader.onerror = reject
+                reader.readAsDataURL(blob)
+            })
+            callFlutter('onImageClick', base64 )
+        })
+    }
+
+    renderAnnotation() {
         const bookmarks = allAnnotations ?? []
         for (const bookmark of bookmarks) {
             const { value, type, color, note } = bookmark
@@ -370,51 +482,14 @@ class Reader {
                 color,
                 note
             }
-            const spineCode = (value.split('/')[2].split('!')[0] - 2) / 2
 
-            const list = this.annotations.get(spineCode)
-            if (list) list.push(annotation)
-            else this.annotations.set(spineCode, [annotation])
-
-            this.annotationsByValue.set(value, annotation)
+            this.addAnnotation(annotation)
         }
 
-
-        this.view.addEventListener('create-overlay', e => {
-            const { index } = e.detail
-            const list = this.annotations.get(index)
-            if (list) for (const annotation of list)
-                this.view.addAnnotation(annotation)
-        })
-
-        this.view.addEventListener('draw-annotation', e => {
-            const { draw, annotation } = e.detail
-            const { color, type } = annotation
-            if (type === 'highlight') draw(Overlayer.highlight, { color })
-            else if (type === 'underline') draw(Overlayer.underline, { color })
-        })
-
-        this.view.addEventListener('show-annotation', e => {
-            const annotation = this.annotationsByValue.get(e.detail.value)
-            const pos = getPosition(e.detail.range)
-            onAnnotationClick({ annotation, pos })
-        })
-        this.view.addEventListener('external-link', e => {
-            e.preventDefault()
-            onExternalLink(e.detail)
-        })
-
-        this.view.addEventListener('link', e =>
-            this.#footnoteHandler.handle(this.view.book, e)?.catch(err => {
-                console.warn(err)
-                this.view.goTo(e.detail.href)
-            }))
-
-        await this.view.init({ lastLocation: cfi })
     }
 
     showContextMenu() {
-        handleSelection(this.view, this.#doc, this.#index)
+        return handleSelection(this.view, this.#doc, this.#index)
     }
 
     addAnnotation(annotation) {
@@ -465,53 +540,22 @@ class Reader {
         const coordinatesY = y / window.innerHeight
         onClickView(coordinatesX, coordinatesY)
     }
+    get index() {
+        return this.#index
+    }
 }
 
 const open = async (file, cfi) => {
     const reader = new Reader()
     globalThis.reader = reader
     await reader.open(file, cfi)
-    if (!importing) { onSetToc() }
+    if (!importing) {
+        onSetToc()
+        callFlutter('renderAnnotations')
+    }
     else { getMetadata() }
 }
 
-// //////// use for test //////////
-// const importing = false
-// const allAnnotations = [
-//    { id: 1, type: 'highlight', value: "epubcfi(/6/12!/4/4,/1:0,/1:73)", color: 'blue', note: 'this is' },
-//    { id: 2, type: 'highlight', value: "epubcfi(/6/4!/4/4,/1:222,/1:226)", color: 'yellow', note: 'this is' },
-//    { id: 3, type: 'underline', value: "epubcfi(/6/4!/4/4,/1:294,/1:301)", color: 'red', note: 'this is' },
-// ]
-// let url = '../local/a.epub'
-// let cfi = "epubcfi(/6/8!/4,/2[CHP1],/10/1:177)"
-// // let cfi = null
-// let style = {
-//    fontSize: 1.2,
-//    letterSpacing: 0,
-//    spacing: '1.5',
-//    paragraphSpacing: 5,
-//    textIndent: 0,
-//    fontColor: '#66ccff',
-//    backgroundColor: '#ffffff',
-//    topMargin: 100,
-//    bottomMargin: 100,
-//    sideMargin: 5,
-//    justify: true,
-//    hyphenate: true,
-//    // scroll: false,
-//    // animated: true,
-//    pageTurnStyle: 'slide'
-// }
-// window.flutter_inappwebview = {}
-// window.flutter_inappwebview.callHandler = (name, data) => {
-//    console.log(name, data)
-// }
-// ///////////////////////////////
-
-fetch(url)
-    .then(res => res.blob())
-    .then(blob => open(new File([blob], new URL(url, window.location.origin).pathname), cfi))
-    .catch(e => console.error(e))
 
 const callFlutter = (name, data) => window.flutter_inappwebview.callHandler(name, data)
 
@@ -540,6 +584,8 @@ const setStyle = () => {
     reader.view.renderer.setAttribute('top-margin', `${style.topMargin}px`)
     reader.view.renderer.setAttribute('bottom-margin', `${style.bottomMargin}px`)
     reader.view.renderer.setAttribute('gap', `${style.sideMargin}%`)
+    reader.view.renderer.setAttribute('background-color', style.backgroundColor)
+
     turn.animated ? reader.view.renderer.setAttribute('animated', 'true')
         : reader.view.renderer.removeAttribute('animated')
 
@@ -611,7 +657,6 @@ const getMetadata = async () => {
     }
 }
 
-
 window.changeStyle = (newStyle) => {
     style = {
         ...style,
@@ -649,7 +694,13 @@ window.setNoAnimation = () => {
     setStyle()
 }
 
-window.showContextMenu = () => reader.showContextMenu()
+window.showContextMenu = () => {
+    if (footnoteDialog.open) {
+        callFlutter('onSelectionEnd', { ...footnoteSelection(), footnote: true })
+    } else {
+        callFlutter('onSelectionEnd', { ...reader.showContextMenu(), footnote: false })
+    }
+}
 
 window.clearSelection = () => reader.view.deselect()
 
@@ -693,3 +744,44 @@ window.ttsPrev = () => {
     if (result) return result
     return ttsPrevSection(true)
 }
+
+window.ttsPrepare = () => reader.view.tts.prepare()
+
+window.clearSearch = () => reader.view.clearSearch()
+
+window.search = async (text, opts) => {
+    opts == null && (opts = {
+        'scope': 'book',
+        'matchCase': false,
+        'matchDiacritics': false,
+        'matchWholeWords': false,
+    })
+    const query = text.trim()
+    if (!query) return
+
+    const index = opts.scope === 'section' ? reader.index : null
+
+    for await (const result of reader.view.search({ ...opts, query, index })) {
+        if (result === 'done') {
+            callFlutter('onSearch', { process: 1.0 })
+        }
+        else if ('progress' in result)
+            callFlutter('onSearch', { process: result.progress })
+        else {
+            callFlutter('onSearch', result)
+        }
+    }
+}
+
+window.back = () => reader.view.history.back()
+
+window.forward = () => reader.view.history.forward()
+
+window.renderAnnotations = () => reader.renderAnnotation()
+
+await callFlutter('webviewInitialVariable')
+
+fetch(url)
+    .then(res => res.blob())
+    .then(blob => open(new File([blob], new URL(url, window.location.origin).pathname), initialCfi))
+    .catch(e => console.error(e))

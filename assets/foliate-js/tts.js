@@ -23,7 +23,7 @@ function rangeIsEmpty(range) {
 const sentenseEndRegex = (lang) => {
     switch (lang) {
         case 'zh':
-            return /[!?。！？]["'“”‘’]?/g
+            return 
         case 'en':
             return /[.!?]["']?/g
         default:
@@ -37,7 +37,10 @@ function* getBlocks(doc) {
 
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         let match
-        const regex = sentenseEndRegex(getLang(node.parentElement))
+        // it some times cannot get the lang of the parent element
+        // const regex = sentenseEndRegex(getLang(node.parentElement))
+
+        const regex = /[.!?。！？]["'“”‘’]?/g
         while ((match = regex.exec(node.textContent)) !== null) {
             const range = doc.createRange()
             if (lastRange) {
@@ -48,7 +51,6 @@ function* getBlocks(doc) {
             lastRange.setStart(node, match.index + match[0].length)
         }
 
-        // 在每个 node 结尾时创建一个新的 Range 对象
         if (lastRange) {
             lastRange.setEnd(node, node.textContent.length)
             if (!rangeIsEmpty(lastRange)) yield lastRange
@@ -106,6 +108,16 @@ class ListIterator {
                 this.#index = newIndex
                 return this.#f(this.#arr[newIndex])
             }
+        }
+    }
+    prepare() {
+        const newIndex = this.#index + 1
+        if (this.#arr[newIndex]) return this.#f(this.#arr[newIndex])
+        while (true) {
+            const { done, value } = this.#iter.next()
+            if (done) break
+            this.#arr.push(value)
+            if (this.#arr[newIndex]) return this.#f(this.#arr[newIndex])
         }
     }
     find(f) {
@@ -184,6 +196,12 @@ export class TTS {
         this.#lastMark = null
         const [text, range] = this.#list.next() ?? []
         if (paused && range) this.highlight(range.cloneRange())
+        return this.#getText(text)
+    }
+
+    // get next text without moving the iterator
+    prepare() {
+        const [text] = this.#list.prepare() ?? []
         return this.#getText(text)
     }
 

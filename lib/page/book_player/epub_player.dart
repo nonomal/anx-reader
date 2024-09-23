@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -7,7 +8,10 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/book_style.dart';
 import 'package:anx_reader/models/font_model.dart';
 import 'package:anx_reader/models/read_theme.dart';
+import 'package:anx_reader/models/search_result_model.dart';
 import 'package:anx_reader/models/toc_item.dart';
+import 'package:anx_reader/page/book_player/image_viewer.dart';
+import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/service/book_player/book_player_server.dart';
 import 'package:anx_reader/utils/coordinates_to_part.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
@@ -55,6 +59,22 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
   OverlayEntry? contextMenuEntry;
   late AnimationController _animationController;
   late Animation<double> _animation;
+  double searchProcess = 0.0;
+  List<SearchResultModel> searchResult = [];
+  bool showHistory = false;
+  bool canGoBack = false;
+  bool canGoForward = false;
+
+  final StreamController<double> _searchProgressController =
+      StreamController<double>.broadcast();
+
+  Stream<double> get searchProgressStream => _searchProgressController.stream;
+
+  final StreamController<List<SearchResultModel>> _searchResultController =
+      StreamController<List<SearchResultModel>>.broadcast();
+
+  Stream<List<SearchResultModel>> get searchResultStream =>
+      _searchResultController.stream;
 
   void prevPage() {
     webViewController.evaluateJavascript(source: 'prevPage()');
@@ -98,12 +118,13 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
     webViewController.evaluateJavascript(source: '''
       changeStyle({
         fontSize: ${bookStyle.fontSize},
-        spacing: '${bookStyle.lineHeight}',
+        spacing: ${bookStyle.lineHeight},
         paragraphSpacing: ${bookStyle.paragraphSpacing},
         topMargin: ${bookStyle.topMargin},
         bottomMargin: ${bookStyle.bottomMargin},
         sideMargin: ${bookStyle.sideMargin},
         letterSpacing: ${bookStyle.letterSpacing},
+        textIndent: ${bookStyle.indent},
       })
     ''');
   }
@@ -125,13 +146,11 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
     ''');
   }
 
-  void goToHref(String href) {
-    webViewController.evaluateJavascript(source: "goToHref('$href')");
-  }
+  void goToHref(String href) =>
+      webViewController.evaluateJavascript(source: "goToHref('$href')");
 
-  void goToCfi(String cfi) {
-    webViewController.evaluateJavascript(source: "goToCfi('$cfi')");
-  }
+  void goToCfi(String cfi) =>
+      webViewController.evaluateJavascript(source: "goToCfi('$cfi')");
 
   void addAnnotation(BookNote bookNote) {
     webViewController.evaluateJavascript(source: '''
@@ -145,10 +164,25 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
       ''');
   }
 
-  void removeAnnotation(String cfi) {
+  void removeAnnotation(String cfi) =>
+      webViewController.evaluateJavascript(source: "removeAnnotation('$cfi')");
+
+  void clearSearch() {
+    webViewController.evaluateJavascript(source: "clearSearch()");
+    searchResult.clear();
+    _searchResultController.add(searchResult);
+  }
+
+  void search(String text) {
+    clearSearch();
     webViewController.evaluateJavascript(source: '''
-      removeAnnotation('$cfi');
-      ''');
+      search('$text', {
+        'scope': 'book',
+        'matchCase': false,
+        'matchDiacritics': false,
+        'matchWholeWords': false,
+      })
+    ''');
   }
 
   Future<void> initTts() async =>
@@ -172,7 +206,19 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
           .callAsyncJavaScript(functionBody: "return await ttsNextSection()"))
       ?.value;
 
+  Future<String> ttsPrepare() async =>
+      (await webViewController.evaluateJavascript(source: "ttsPrepare()"));
+
+  void backHistory() {
+    webViewController.evaluateJavascript(source: "back()");
+  }
+
+  void forwardHistory() {
+    webViewController.evaluateJavascript(source: "forward()");
+  }
+
   void onClick(Map<String, dynamic> location) {
+    readingPageKey.currentState?.resetAwakeTimer();
     if (contextMenuEntry != null) {
       removeOverlay();
       return;
@@ -195,35 +241,27 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> onLoadStart(InAppWebViewController controller) async {
-    ReadTheme readTheme = Prefs().readTheme;
-    BookStyle bookStyle = Prefs().bookStyle;
-    String backgroundColor = convertDartColorToJs(readTheme.backgroundColor);
-    String textColor = convertDartColorToJs(readTheme.textColor);
+  Future<void> renderAnnotations(InAppWebViewController controller) async {
     List<BookNote> annotationList =
         await selectBookNotesByBookId(widget.book.id);
     String allAnnotations =
         jsonEncode(annotationList.map((e) => e.toJson()).toList())
             .replaceAll('\'', '\\\'');
+    controller.evaluateJavascript(source: '''
+     const allAnnotations = $allAnnotations
+     renderAnnotations()
+    ''');
+  }
 
+  void setHandler(InAppWebViewController controller) {
     String url =
         'http://localhost:${Server().port}/book${getBasePath(widget.book.filePath)}'
             .replaceAll('\'', '\\\'');
 
-    String cfi = widget.cfi ?? widget.book.lastReadPosition;
+    String initialCfi = widget.cfi ?? widget.book.lastReadPosition;
 
-    await controller.evaluateJavascript(
-        source: webviewInitialVariable(
-      allAnnotations,
-      url,
-      cfi,
-      bookStyle,
-      textColor,
-      backgroundColor,
-    ));
-  }
+    webviewInitialVariable(controller, url, initialCfi);
 
-  Future<void> setHandler(InAppWebViewController controller) async {
     controller.addJavaScriptHandler(
         handlerName: 'onRelocated',
         callback: (args) {
@@ -236,6 +274,7 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
             chapterCurrentPage = location['chapterCurrentPage'];
             chapterTotalPages = location['chapterTotalPages'];
           });
+          readingPageKey.currentState?.resetAwakeTimer();
         });
     controller.addJavaScriptHandler(
         handlerName: 'onClick',
@@ -255,10 +294,11 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
           Map<String, dynamic> location = args[0];
           String cfi = location['cfi'];
           String text = location['text'];
+          bool footnote = location['footnote'];
           double x = location['pos']['point']['x'];
           double y = location['pos']['point']['y'];
           String dir = location['pos']['dir'];
-          showContextMenu(context, x, y, dir, text, cfi, null);
+          showContextMenu(context, x, y, dir, text, cfi, null, footnote);
         });
     controller.addJavaScriptHandler(
         handlerName: 'onAnnotationClick',
@@ -270,8 +310,58 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
           double x = annotation['pos']['point']['x'];
           double y = annotation['pos']['point']['y'];
           String dir = annotation['pos']['dir'];
-          showContextMenu(context, x, y, dir, note, cfi, id);
+          showContextMenu(context, x, y, dir, note, cfi, id, false);
         });
+    controller.addJavaScriptHandler(
+      handlerName: 'onSearch',
+      callback: (args) {
+        Map<String, dynamic> search = args[0];
+        setState(() {
+          if (search['process'] != null) {
+            searchProcess = search['process'].toDouble();
+            _searchProgressController.add(searchProcess);
+          } else {
+            searchResult.add(SearchResultModel.fromJson(search));
+            _searchResultController.add(searchResult);
+          }
+        });
+      },
+    );
+    controller.addJavaScriptHandler(
+      handlerName: 'renderAnnotations',
+      callback: (args) {
+        renderAnnotations(controller);
+      },
+    );
+    controller.addJavaScriptHandler(
+      handlerName: 'onPushState',
+      callback: (args) {
+        Map<String, dynamic> state = args[0];
+        canGoBack = state['canGoBack'];
+        canGoForward = state['canGoForward'];
+        setState(() {
+          showHistory = true;
+        });
+        Future.delayed(const Duration(seconds: 20), () {
+          setState(() {
+            showHistory = false;
+          });
+        });
+      },
+    );
+    controller.addJavaScriptHandler(
+      handlerName: 'onImageClick',
+      callback: (args) {
+        String image = args[0];
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => ImageViewer(
+                      image: image,
+                      bookName: widget.book.title,
+                    )));
+      },
+    );
   }
 
   Future<void> onWebViewCreated(InAppWebViewController controller) async {
@@ -334,6 +424,7 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
 
   String indexHtmlPath =
       "http://localhost:${Server().port}/foliate-js/index.html";
+
   InAppWebViewSettings initialSettings = InAppWebViewSettings(
     supportZoom: false,
     transparentBackground: true,
@@ -417,6 +508,7 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           SizedBox.expand(
@@ -425,7 +517,6 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
           ),
           InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(indexHtmlPath)),
-            onLoadStart: (controller, url) => onLoadStart(controller),
             initialSettings: initialSettings,
             contextMenu: contextMenu,
             onWebViewCreated: (controller) => onWebViewCreated(controller),
@@ -434,6 +525,34 @@ class EpubPlayerState extends State<EpubPlayer> with TickerProviderStateMixin {
             },
           ),
           readingInfoWidget(),
+          if (showHistory)
+            Positioned(
+              bottom: 30,
+              left: 0,
+              child: Container(
+                width: MediaQuery.of(context).size.width,
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (canGoBack)
+                      IconButton(
+                        onPressed: () {
+                          backHistory();
+                        },
+                        icon: const Icon(Icons.arrow_back_ios),
+                      ),
+                    if (canGoForward)
+                      IconButton(
+                        onPressed: () {
+                          forwardHistory();
+                        },
+                        icon: const Icon(Icons.arrow_forward_ios),
+                      ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

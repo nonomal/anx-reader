@@ -92,6 +92,7 @@ const getVisibleRange = (doc, start, end, mapRect) => {
         }
         return FILTER_SKIP
     }
+    if (!doc) return
     const walker = doc.createTreeWalker(doc.body, filter, { acceptNode })
     const nodes = []
     for (let node = walker.nextNode(); node; node = walker.nextNode())
@@ -240,6 +241,7 @@ class View {
     scrolled({ gap, columnWidth }) {
         const vertical = this.#vertical
         const doc = this.document
+        if (!doc) return
         setStylesImportant(doc.documentElement, {
             'box-sizing': 'border-box',
             'padding': vertical ? `${gap}px 0` : `0 ${gap}px`,
@@ -371,7 +373,7 @@ class View {
 // NOTE: everything here assumes the so-called "negative scroll type" for RTL
 export class Paginator extends HTMLElement {
     static observedAttributes = [
-        'flow', 'gap', 'top-margin', 'bottom-margin',
+        'flow', 'gap', 'top-margin', 'bottom-margin', 'background-color',
         'max-inline-size', 'max-block-size', 'max-column-count',
     ]
     #root = this.attachShadow({ mode: 'open' })
@@ -412,8 +414,7 @@ export class Paginator extends HTMLElement {
         }
         #top {
             // --_gap: 7%;
-            --_top-margin: 0px;
-            --_bottom-margin: 0px;
+            background-color: var(--_background-color);
             --_max-inline-size: 720px;
             --_max-block-size: 1440px;
             --_max-column-count: 2;
@@ -510,10 +511,10 @@ export class Paginator extends HTMLElement {
         }, 250))
 
         const opts = { passive: false }
-      this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
-      this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
-      this.addEventListener('touchend', this.#onTouchEnd.bind(this))
-      this.addEventListener('load', ({ detail: { doc } }) => {
+        this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
+        this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
+        this.addEventListener('touchend', this.#onTouchEnd.bind(this))
+        this.addEventListener('load', ({ detail: { doc } }) => {
             doc.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
             doc.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
             doc.addEventListener('touchend', this.#onTouchEnd.bind(this))
@@ -532,6 +533,7 @@ export class Paginator extends HTMLElement {
                 break
             case 'top-margin':
             case 'max-block-size':
+            case 'background-color':
             case 'max-column-count':
                 this.#top.style.setProperty('--_' + name, value)
                 break
