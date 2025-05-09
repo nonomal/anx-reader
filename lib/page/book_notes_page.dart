@@ -1,13 +1,13 @@
-
 import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/service/notes/export_notes.dart';
-import 'package:anx_reader/widgets/book_cover.dart';
+import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/book_notes/book_notes_list.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_detail.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
+import 'package:anx_reader/widgets/icon_and_text.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
@@ -16,10 +16,12 @@ class BookNotesPage extends StatefulWidget {
     super.key,
     required this.book,
     required this.numberOfNotes,
+    required this.isMobile,
   });
 
   final Book book;
   final int numberOfNotes;
+  final bool isMobile;
 
   @override
   State<BookNotesPage> createState() => _BookNotesPageState();
@@ -31,6 +33,7 @@ class _BookNotesPageState extends State<BookNotesPage> {
       fontSize: 24,
       fontWeight: FontWeight.bold,
       overflow: TextOverflow.ellipsis,
+      fontFamily: 'SourceHanSerif',
     );
     return Card(
       child: Container(
@@ -121,22 +124,33 @@ class _BookNotesPageState extends State<BookNotesPage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                operateButton(context, const Icon(Icons.copy), 'Copy', () {
-                  Navigator.pop(context);
-                  exportNotes(book, notes!, ExportType.copy);
-                }),
-                operateButton(
-                    context,
-                    // SvgPicture.asset('assets/icon/Markdown.svg'),
-                    const Icon(IonIcons.logo_markdown),
-                    'Markdown', () {
+                IconAndText(
+                    icon: const Icon(Icons.copy),
+                    text: 'Copy',
+                    onTap: () {
+                      Navigator.pop(context);
+                      exportNotes(book, notes!, ExportType.copy);
+                    }),
+                IconAndText(
+                    icon: const Icon(IonIcons.logo_markdown),
+                    text: 'Markdown',
+                    onTap: () {
                   Navigator.pop(context);
                   exportNotes(book, notes!, ExportType.md);
                 }),
-                operateButton(context, const Icon(Icons.text_snippet), 'Text',
-                    () {
+                IconAndText(
+                    icon: const Icon(Icons.text_snippet),
+                    text: 'Text',
+                    onTap: () {
                   Navigator.pop(context);
                   exportNotes(book, notes!, ExportType.txt);
+                }),
+                IconAndText(
+                    icon: const Icon(Icons.table_chart),
+                    text: 'CSV',
+                    onTap: () {
+                  Navigator.pop(context);
+                  exportNotes(book, notes!, ExportType.csv);
                 }),
               ],
             ),
@@ -146,40 +160,24 @@ class _BookNotesPageState extends State<BookNotesPage> {
 
   Row operators(BuildContext context, Book book) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      operateButton(context, const Icon(Icons.details),
-          L10n.of(context).notes_page_detail, () {
+      IconAndText(
+          icon: const Icon(Icons.details),
+          text: L10n.of(context).notes_page_detail,
+          onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => BookDetail(book: book, onRefresh: () {}),
+            builder: (context) => BookDetail(book: book),
           ),
         );
       }),
-      // operateButton(context, Icons.search, 'Search', () {}),
-      operateButton(context, const Icon(Icons.ios_share),
-          L10n.of(context).notes_page_export, () {
+      IconAndText(
+          icon: const Icon(Icons.ios_share),
+          text: L10n.of(context).notes_page_export,
+          onTap: () {
         handleExportNotes(context, book);
       }),
-      // operateButton(context, Icons.ios_share, 'Export', () {}),
     ]);
-  }
-
-  Widget operateButton(
-      BuildContext context, Widget icon, String text, Function() onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            SizedBox(height: 40, width: 40, child: icon),
-            Text(text,
-                style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge!.color)),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget notesStatistic(BuildContext context, int numberOfNotes, Book book) {
@@ -212,12 +210,13 @@ class _BookNotesPageState extends State<BookNotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.book.title),
-      ),
+      appBar: widget.isMobile
+          ? AppBar(
+              title: Text(widget.book.title),
+            )
+          : null,
       extendBodyBehindAppBar: true,
       body: SafeArea(
-        // top: false,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:flutter/services.dart';
@@ -22,7 +23,15 @@ class Server {
         .addMiddleware(shelf.logRequests())
         .addHandler(_handleRequests);
 
-    _server = await io.serve(handler, 'localhost', 0);
+    int port = Prefs().lastServerPort;
+
+    try {
+      _server = await io.serve(handler, 'localhost', port);
+    } catch (e) {
+      _server = await io.serve(handler, 'localhost', 0);
+    }
+
+    Prefs().lastServerPort = _server!.port;
     AnxLog.info(
         'Server: Serving at http://${_server?.address.host}:${_server?.port}');
   }
@@ -41,16 +50,19 @@ class Server {
   }
 
   File? _tempFile;
+  String? _tempFileName;
 
-  set tempFile(File file) {
+  String setTempFile(File file) {
     _tempFile = file;
+    _tempFileName = DateTime.timestamp().hashCode.toString();
+    return _tempFileName!;
   }
 
   Future<shelf.Response> _handleRequests(shelf.Request request) async {
     final uriPath = request.requestedUri.path;
     AnxLog.info('Server: Request for $uriPath');
 
-    if (Uri.decodeComponent(uriPath) == _tempFile?.path) {
+    if (_tempFileName != null && uriPath == "/${_tempFileName!}") {
       return shelf.Response.ok(
         _tempFile?.openRead(),
         headers: {
@@ -70,7 +82,7 @@ class Server {
       );
     } else if (uriPath.startsWith('/fonts/')) {
       Directory fontDir = getFontDir();
-      final file = File('${fontDir.path}/${path.basename(uriPath)}');
+      final file = File('${fontDir.path}/${path.basename(Uri.decodeComponent(uriPath))}');
       if (!file.existsSync()) {
         return shelf.Response.notFound('Font not found');
       }
@@ -79,9 +91,9 @@ class Server {
         headers: {
           'Content-Type': 'font/opentype',
           'Access-Control-Allow-Origin': '*',
+          'cache-control': 'public, max-age=31536000',
         },
       );
-
     } else if (uriPath.startsWith('/foliate-js/')) {
       if (uriPath.endsWith('.epub')) {
         final file =
@@ -107,7 +119,9 @@ class Server {
     } else {
       return shelf.Response.ok(
         'Request for "${request.url}"',
-        headers: {'Access-Control-Allow-Origin': '*'},
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
       );
     }
   }

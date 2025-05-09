@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:anx_reader/service/book_player/book_player_server.dart';
+
 class FontModel {
   final String label;
   final String name;
-  final String path;
+  String path;
 
   FontModel({
     required this.label,
@@ -16,17 +18,19 @@ class FontModel {
     {
       "label": "$label",
       "name": "$name",
-      "path": "$path"
+      "path": "${path.split('/').last}"
     }
     ''';
   }
+
+  String get litePath => path.split('/').last;
 
   static FontModel fromJson(String fontJson) {
     final Map<String, dynamic> json = jsonDecode(fontJson);
     return FontModel(
       label: json['label'],
       name: json['name'],
-      path: json['path'],
+      path: 'http://localhost:${Server().port}/fonts/${json['path']}',
     );
   }
 
@@ -35,8 +39,7 @@ class FontModel {
       identical(this, other) ||
       other is FontModel &&
           runtimeType == other.runtimeType &&
-          name == other.name &&
-          path == other.path;
+          litePath == other.litePath;
 
   @override
   int get hashCode => name.hashCode ^ path.hashCode;

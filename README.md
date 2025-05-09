@@ -1,4 +1,4 @@
-**English** | [简体中文](README_zh.md)
+**English** | [简体中文](README_zh.md) | [Türkçe](README_tr.md)
 
 <br>
 
@@ -6,34 +6,157 @@
   <img src="./docs/images/Anx-logo.jpg" alt="Anx-logo" width="100" />
 </p>
 <h1 align="center">Anx Reader</h1>
+<p align="center"><a href="https://trendshift.io/repositories/10329" target="_blank"><img src="https://trendshift.io/api/badge/repositories/10329" alt="Anxcye%2Fanx-reader | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a></p>
+
 <p align="center">
+  <a href="https://github.com/Anxcye/anx-reader#platform-support"><img src="https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20iOS%20%7C%20Android-lightgrey" alt="Platforms"></a>
+  <a href="https://github.com/Anxcye/anx-reader#supported-formats"><img src="https://img.shields.io/badge/formats-epub%20%7C%20fb2%20%7C%20mobi%20%7C%20txt%20%7C%20azw3%20%7C%20pdf-brightgreen" alt="Supported Formats"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Anxcye/anx-reader/releases/latest"><img src="https://img.shields.io/github/v/release/anxcye/anx-reader" alt="Latest Release"></a>
+  <a href="https://github.com/Anxcye/anx-reader/releases"><img src="https://img.shields.io/github/v/release/anxcye/anx-reader?include_prereleases" alt="Pre-release"></a>
   <a href="https://github.com/Anxcye/anx-reader/blob/main/LICENSE"><img src="https://img.shields.io/github/license/anxcye/anx-reader" alt="License" ></a>
   <a href="https://github.com/Anxcye/anx-reader/releases"><img src="https://img.shields.io/github/downloads/anxcye/anx-reader/total" alt="Downloads"></a>
   <a href="https://hellogithub.com/repository/819a2b3050204451bed552a8812114e5" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=819a2b3050204451bed552a8812114e5&claim_uid=WBA1XOQirm2GRqs&theme=small" alt="Featured｜HelloGitHub"/></a>
   <a href="https://github.com/anxcye/anx-reader/stargazers"><img src="https://img.shields.io/github/stars/anxcye/anx-reader" alt="stars"></a>
 </p>
 
-Anx Reader is an application focused on reading, without any online promotional content. It can help you concentrate more on reading and improve your reading efficiency.
+Anx Reader, a thoughtfully crafted e-book reader for book lovers. Featuring powerful AI capabilities and supporting various e-book formats, it makes reading smarter and more focused. With its modern interface design, we're committed to delivering pure reading pleasure.
 
-![](./docs/images/9.jpg)
 
-- More comprehensive synchronization features. Supports using WebDAV to sync reading progress, notes, and book files.
-- Rich and customizable reading color schemes for a more comfortable reading experience.
-- Powerful reading statistics to record your every reading session.
-- Rich reading note-taking features for deeper reading.
-- Interface adapted for phones and tablets.
+![](./docs/images/main.jpg)
+
+**Cross-Platform** iOS/macOS/Windows/Android
+
+**Full Sync** Reading Progress/Book Files/Highlighted Notes
+
+**Multiple AI** OpenAI/Claude/Gemini/DeepSeek
+
+**Insightful Data** Detailed and Intuitive Charts - Weekly/Monthly/Yearly/Heatmap
+
+**Notes** Multiple Ways to Filter/Sort - Export as TXT, Markdown, CSV
+
+**Highly Customizable Styles** Line Spacing/Paragraph Spacing/Margins/Fonts/Color Schemes/Page Turning Methods
+
+**Practical Features** Translation/Search/Quick Ask AI/Write Ideas/Text-to-Speech
+
+
+<table border="1">
+  <tr>
+    <th>OS</th>
+    <th>Source</th>
+  </tr>
+  <tr>
+    <td>iOS</td>
+    <td>
+      <a href="https://apps.apple.com/app/anx-reader/id6743196413" target="_blank">
+        <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="App Store" height="45"/>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td>macOS</td>
+    <td>
+      <a href="https://apps.apple.com/app/anx-reader/id6743196413" target="_blank">
+        <img src="https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-mac-app-store.svg" alt="Mac App Store" height="45"/>
+      </a>
+      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+        <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td>Windows</td>
+    <td>
+      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+        <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td>Android</td>
+    <td>
+      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+        <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
+      </a>
+    </td>
+  </tr>
+</table>
+
+📚 **Rich Format Support**
+- Support for major e-book formats: EPUB, MOBI, AZW3, FB2, TXT
+- Perfect parsing for optimal reading experience
+
+☁️ **Seamless Sync**
+- Cross-device synchronization of reading progress, notes, and books via WebDAV
+- Continue your reading journey anywhere, anytime
+
+🤖 **Smart AI Assistant**
+- Integration with leading AI services: OpenAI, DeepSeek, Claude, Gemini
+- Intelligent content summarization and reading position recall for enhanced efficiency
+
+🎨 **Personalized Reading Experience**
+- Carefully designed theme colors with customization options
+- Switch freely between scrolling and pagination modes
+- Import custom fonts to create your personal reading space
+
+📊 **Professional Reading Analytics**
+- Comprehensive reading statistics
+- Weekly, monthly, and yearly reading reports
+- Intuitive reading heatmap to track every moment of your reading journey
+
+📝 **Powerful Note System**
+- Flexible text annotation features
+- Export options in TXT, CSV, and Markdown formats
+- Easily organize and share your reading insights
+
+🛠️ **Practical Tools**
+- Smart TTS reading to rest your eyes
+- Full-text search for quick content location
+- Instant word translation to enhance reading efficiency
+
+💻 **Cross-Platform Support**
+- Seamless experience on Android / Windows / MacOS / iOS
+- Consistent user interface across devices
 
 ### TODO
 - [X] UI adaptation for tablets
 - [X] Page-turning animation
-- [ ] TTS voice reading
-- [ ] Reading fonts
-- [ ] Translation
-- [ ] Support for more file types (currently only supports importing epub)
+- [X] TTS voice reading
+- [X] Reading fonts
+- [X] Translation
+- [ ] Full-text translation
+- [ ] Support for more file types (pdf)
 - [X] Support for WebDAV synchronization
-- [ ] Support for Windows, Linux
+- [ ] Support for Linux
 
-Telegram group: [https://t.me/AnxReader](https://t.me/AnxReader)
+### I Encountered a Problem, What Should I Do?
+Check [Troubleshooting](./docs/troubleshooting.md#English)
+
+Submit an [issue](https://github.com/Anxcye/anx-reader/issues/new/choose), and we will respond as soon as possible.
+
+Telegram Group: [https://t.me/AnxReader](https://t.me/AnxReader)
+
+QQ Group：1042905699
+
+### Screenshots
+| ![](./docs/images/wide1.png) | ![](./docs/images/wide2.png) |
+| :------------------------------: | :----------------------------: |
+|   ![](./docs/images/wide3.png)   |  ![](./docs/images/wide4.png)  |
+|   ![](./docs/images/wide5.png)   |  ![](./docs/images/wide6.png)  |
+|   ![](./docs/images/wide7.png)   |  ![](./docs/images/wide8.png)  |
+
+
+| ![](./docs/images/mobile1.png) | ![](./docs/images/mobile2.png) | ![](./docs/images/mobile3.png) |
+| :----------------------------: | :----------------------------: | :----------------------------: |
+| ![](./docs/images/mobile4.png) | ![](./docs/images/mobile5.png) | ![](./docs/images/mobile6.png) |
+| ![](./docs/images/mobile7.png) | ![](./docs/images/mobile8.png) | ![](./docs/images/mobile9.png) |
+
+## Donations
+If you like Anx Reader, please consider supporting the project by donating. Your donation will help me maintain and improve the project.
+
+❤️ [Donate](https://anxcye.com/home/7)
 
 ## Building
 Want to build Anx Reader from source? Please follow these steps:
@@ -41,17 +164,34 @@ Want to build Anx Reader from source? Please follow these steps:
 - Clone and enter the project directory.
 - Run `flutter pub get`.
 - Run `flutter gen-l10n` to generate multi-language files.
+- Run `dart run build_runner build --delete-conflicting-outputs` to generate the Riverpod code.
 - Run `flutter run` to launch the application.
 
 You may encounter Flutter version incompatibility issues. Please refer to the [Flutter documentation](https://flutter.dev/docs/get-started/install).
 
-# License
-Anx Reader is licensed under the [GPL-3.0 License](./LICENSE).
+
+## Code signing policy
+- Committers and reviewers: [Members team](https://github.com/anxcye/anx-reader/graphs/contributors)
+- Approvers: [Owners](https://github.com/anxcye)
+- [Privacy Policy](https://anx.anxcye.com/privacy.html)
+- [Terms of Service](https://anx.anxcye.com/terms.html)
+
+### Sponsors
+| ![signpath](https://signpath.org/assets/favicon-50x50.png) | Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/),certficate by [SignPath Foundation](https://signpath.org/) |
+|------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+
+
+## License
+This project is licensed under the [MIT License](./LICENSE).
 
 Starting from version 1.1.4, the open source license for the Anx Reader project has been changed from the MIT License to the GNU General Public License version 3 (GPLv3).
 
+After version 1.2.6, the selection and highlight feature has been rewritten, and the open source license has been changed from the GPL-3.0 License to the MIT License. All contributors agree to this change(#116).
+
 ## Thanks
 [foliate-js](https://github.com/johnfactotum/foliate-js), which is MIT licensed, it used as the ebook renderer. Thanks to the author for providing such a great project.
-[foliate](https://github.com/johnfactotum/foliate), which is GPL-3.0 licensed, selection and highlight feature is inspired by this project.
+
+[foliate](https://github.com/johnfactotum/foliate), which is GPL-3.0 licensed, selection and highlight feature is inspired by this project. But since 1.2.6, the selection and highlight feature has been rewritten.
+
 And many [other open source projects](./pubspec.yaml), thanks to all the authors for their contributions.
 

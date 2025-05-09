@@ -1,60 +1,42 @@
 import 'dart:io';
 
-import 'package:anx_reader/dao/book.dart';
+import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/enums/sort_field.dart';
+import 'package:anx_reader/enums/sort_order.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
+import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/book.dart';
+import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/service/book.dart';
-import 'package:anx_reader/utils/toast/common.dart';
-import 'package:anx_reader/utils/webdav/common.dart';
-import 'package:anx_reader/utils/webdav/show_status.dart';
-import 'package:anx_reader/widgets/book_list.dart';
+import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
+import 'package:anx_reader/utils/log/common.dart';
+import 'package:anx_reader/widgets/bookshelf/book_bottom_sheet.dart';
+import 'package:anx_reader/widgets/bookshelf/book_folder.dart';
+import 'package:anx_reader/widgets/bookshelf/sync_button.dart';
 import 'package:anx_reader/widgets/tips/bookshelf_tips.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_reorderable_grid_view/widgets/custom_draggable.dart';
+import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:icons_plus/icons_plus.dart';
 
-class BookshelfPage extends StatefulWidget {
+class BookshelfPage extends ConsumerStatefulWidget {
   const BookshelfPage({super.key});
 
   @override
-  State<BookshelfPage> createState() => BookshelfPageState();
-
-  void refreshBookList() {
-    BookshelfPageState().refreshBookList();
-  }
+  ConsumerState<BookshelfPage> createState() => BookshelfPageState();
 }
 
-class BookshelfPageState extends State<BookshelfPage>
-    with SingleTickerProviderStateMixin {
-  List<Book> _books = [];
-  AnimationController? _syncAnimationController;
-
-  @override
-  void dispose() {
-    _syncAnimationController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _syncAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat();
-    refreshBookList();
-  }
-
-  Future<void> refreshBookList() async {
-    final books = await selectNotDeleteBooks();
-    if (mounted) {
-      setState(() {
-        _books = books;
-      });
-    }
-  }
+class BookshelfPageState extends ConsumerState<BookshelfPage> {
+  final _scrollController = ScrollController();
+  final _gridViewKey = GlobalKey();
+  bool _dragging = false;
+  String? _searchValue;
+  TextEditingController searchBarController = TextEditingController();
 
   Future<void> _importBook() async {
-    final allowBookExtensions = ["epub", "mobi", "azw3", "fb2"];
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: true,
@@ -65,131 +47,285 @@ class BookshelfPageState extends State<BookshelfPage>
     }
 
     List<PlatformFile> files = result.files;
-    List<PlatformFile> supportedFiles = files.where((file) {
-      return allowBookExtensions.contains(file.extension);
-    }).toList();
-    List<PlatformFile> unsupportedFiles = files.where((file) {
-      return !allowBookExtensions.contains(file.extension);
-    }).toList();
-
-    // delete unsupported files
-    for (var file in unsupportedFiles) {
-      File(file.path!).deleteSync();
+    AnxLog.info('importBook files: ${files.toString()}');
+    List<File> fileList = [];
+    // FilePicker on Windows will return files with original path,
+    // but on Android it will return files with temporary path.
+    // So we need to save the files to the temp directory.
+    if (!Platform.isAndroid) {
+      fileList = await Future.wait(files.map((file) async {
+        Directory tempDir = await getAnxTempDir();
+        File tempFile = File('${tempDir.path}/${file.name}');
+        await File(file.path!).copy(tempFile.path);
+        return tempFile;
+      }).toList());
+    } else {
+      fileList = files.map((file) => File(file.path!)).toList();
     }
 
-    Widget bookItem(String name, Icon icon) {
-      return Row(
-        children: [
-          icon,
-          Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w300,
-                  // fontSize: ,
-                  overflow: TextOverflow.ellipsis),
-            ),
-          ),
-        ],
-      );
-    }
-
-    showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(L10n.of(context).import_n_books_selected(files.length)),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(L10n.of(context)
-                      .import_support_types(allowBookExtensions.join(' / '))),
-                  const SizedBox(height: 10),
-                  if (unsupportedFiles.isNotEmpty)
-                    Text(L10n.of(context)
-                        .import_n_books_not_support(unsupportedFiles.length)),
-                  const SizedBox(height: 20),
-                  for (var file in unsupportedFiles)
-                    bookItem(file.name, const Icon(Icons.error)),
-                  for (var file in supportedFiles)
-                    bookItem(file.name, const Icon(Icons.done)),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  for (var file in supportedFiles) {
-                    File(file.path!).deleteSync();
-                  }
-                },
-                child: Text(L10n.of(context).common_cancel),
-              ),
-              if (supportedFiles.isNotEmpty)
-                TextButton(
-                    onPressed: () async {
-                      for (var file in supportedFiles) {
-                        AnxToast.show(file.name);
-                        await importBook(File(file.path!), refreshBookList);
-                      }
-                      Navigator.of(context).pop('dialog');
-                    },
-                    child: Text(L10n.of(context)
-                        .import_import_n_books(supportedFiles.length))),
-            ],
-          );
-        });
-
-
-  }
-
-  Widget syncButton() {
-    return StreamBuilder<bool>(
-      stream: AnxWebdav.syncing,
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data == true) {
-          _syncAnimationController?.repeat();
-          return IconButton(
-            icon: RotationTransition(
-              turns: Tween(begin: 1.0, end: 0.0)
-                  .animate(_syncAnimationController!),
-              child: const Icon(Icons.sync),
-            ),
-            onPressed: () {
-              // AnxWebdav.syncData(SyncDirection.both);
-              showWebdavStatus();
-            },
-          );
-        } else {
-          return IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () {
-              AnxWebdav.syncData(SyncDirection.both);
-            },
-          );
-        }
-      },
-    );
+    importBookList(fileList, context, ref);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(L10n.of(context).appName),
-        actions: [
-          syncButton(),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _importBook,
-          ),
+    void handleBottomSheet(BuildContext context, Book book) {
+      showBottomSheet(
+        context: context,
+        builder: (context) => BookBottomSheet(book: book),
+      );
+    }
+
+    List<int> lockedIndices = [];
+
+    Widget buildBookshelfBody = ref.watch(bookListProvider).when(
+          data: (books) {
+            for (int i = 0; i < books.length; i++) {
+              // folder can't be dragged
+              if (books[i].length != 1) {
+                lockedIndices.add(i);
+              }
+            }
+            return books.isEmpty
+                ? const Center(child: BookshelfTips())
+                : ReorderableBuilder(
+                    // lock all index of books
+                    lockedIndices: lockedIndices,
+                    enableDraggable: true,
+                    longPressDelay: const Duration(milliseconds: 300),
+                    onReorder: (ReorderedListFunction reorderedListFunction) {},
+                    scrollController: _scrollController,
+                    onDragStarted: (index) {
+                      if (books[index].length == 1) {
+                        handleBottomSheet(context, books[index].first);
+                        // add other books to lockedIndices
+                        for (int i = 0; i < books.length; i++) {
+                          if (i != index) {
+                            lockedIndices.add(i);
+                          }
+                        }
+                      }
+                    },
+                    onDragEnd: (index) {
+                      // remove all books from lockedIndices
+                      lockedIndices = [];
+                      for (int i = 0; i < books.length; i++) {
+                        if (books[i].length != 1) {
+                          lockedIndices.add(i);
+                        }
+                      }
+                      setState(() {});
+                    },
+                    children: [
+                      ...books.map(
+                        (book) {
+                          return book.length == 1
+                              ? CustomDraggable(
+                                  key: Key(book.first.id.toString()),
+                                  data: book.first,
+                                  child: BookFolder(books: book))
+                              : BookFolder(
+                                  key: Key(book.first.id.toString()),
+                                  books: book,
+                                );
+                        },
+                      ),
+                    ],
+                    builder: (children) {
+                      return LayoutBuilder(builder: (context, constraints) {
+                        return GridView(
+                          key: _gridViewKey,
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount:
+                                constraints.maxWidth ~/ Prefs().bookCoverWidth,
+                            childAspectRatio: 0.55,
+                            mainAxisSpacing: 30,
+                            crossAxisSpacing: 20,
+                          ),
+                          children: children,
+                        );
+                      });
+                    });
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text(error.toString())),
+        );
+
+    Widget body = DropTarget(
+      onDragDone: (detail) async {
+        List<File> files = [];
+        for (var file in detail.files) {
+          final tempFilePath = '${(await getAnxTempDir()).path}/${file.name}';
+          await File(file.path).copy(tempFilePath);
+          files.add(File(tempFilePath));
+        }
+        importBookList(files, context, ref);
+        setState(() {
+          _dragging = false;
+        });
+      },
+      onDragEntered: (detail) {
+        setState(() {
+          _dragging = true;
+        });
+      },
+      onDragExited: (detail) {
+        setState(() {
+          _dragging = false;
+        });
+      },
+      child: Stack(
+        children: [
+          buildBookshelfBody,
+          if (_dragging)
+            Container(
+              color: Theme.of(context).colorScheme.surface.withAlpha(90),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      EvaIcons.arrowhead_down_outline,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    Text(
+                      L10n.of(context).bookshelf_dragging,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
-      body: _books.isEmpty
-          ? const BookshelfTips()
-          : BookList(books: _books, onRefresh: refreshBookList),
     );
+
+    PreferredSizeWidget appBar = AppBar(
+      forceMaterialTransparency: true,
+      title: Container(
+        height: 34,
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: SearchBar(
+          backgroundColor: WidgetStateProperty.all(
+              Theme.of(context).colorScheme.primary.withAlpha(5)),
+          controller: searchBarController,
+          hintText: L10n.of(context).appName,
+          shadowColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
+          padding: const WidgetStatePropertyAll<EdgeInsets>(
+              EdgeInsets.symmetric(horizontal: 16.0)),
+          leading: const Icon(Icons.search),
+          trailing: [
+            _searchValue != null
+                ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() {
+                        _searchValue = null;
+                        searchBarController.clear();
+                        ref.read(bookListProvider.notifier).search(null);
+                      });
+                    },
+                  )
+                : const SizedBox(),
+          ],
+          onSubmitted: (value) {
+            setState(() {
+              if (value.isEmpty) {
+                _searchValue = null;
+              } else {
+                _searchValue = value;
+                ref.read(bookListProvider.notifier).search(value);
+              }
+            });
+          },
+        ),
+      ),
+      actions: [
+        const SyncButton(),
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: _importBook,
+        ),
+        IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () {
+              showMenu(
+                context: context,
+                position: RelativeRect.fromLTRB(
+                  MediaQuery.of(context).size.width,
+                  MediaQuery.of(context).padding.top + kToolbarHeight,
+                  0.0,
+                  0.0,
+                ),
+                items: [
+                  for (var sortField in SortFieldEnum.values)
+                    PopupMenuItem(
+                        child: Text(
+                          sortField.getL10n(context),
+                          style: TextStyle(
+                            color: sortField == Prefs().sortField
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        onTap: () {
+                          Prefs().sortField = sortField;
+                          ref.read(bookListProvider.notifier).refresh();
+                        }),
+                  PopupMenuItem(
+                    enabled: false,
+                    child: StatefulBuilder(builder: (_, setState) {
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: SegmentedButton(
+                              onSelectionChanged: (value) {
+                                Prefs().sortOrder = value.first;
+                                ref.read(bookListProvider.notifier).refresh();
+                                setState(() {});
+                              },
+                              segments: SortOrderEnum.values
+                                  .map((e) => ButtonSegment(
+                                        value: e,
+                                        label: Text(e.getL10n(
+                                            navigatorKey.currentContext!)),
+                                      ))
+                                  .toList(),
+                              selected: {Prefs().sortOrder},
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  )
+                ],
+              );
+            }),
+      ],
+    );
+
+    return Container(
+        decoration: Prefs().eInkMode
+            ? null
+            : BoxDecoration(
+                gradient: RadialGradient(
+                  tileMode: TileMode.clamp,
+                  center: Alignment.topRight,
+                  radius: 1,
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withAlpha(5),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: appBar,
+          body: body,
+        ));
   }
 }

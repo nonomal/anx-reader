@@ -1,12 +1,11 @@
-
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/dao/reading_time.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_notes_page.dart';
-import 'package:anx_reader/utils/convert_seconds.dart';
-import 'package:anx_reader/widgets/book_cover.dart';
+import 'package:anx_reader/utils/date/convert_seconds.dart';
+import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
 import 'package:anx_reader/widgets/tips/notes_tips.dart';
 import 'package:flutter/material.dart';
@@ -38,11 +37,7 @@ class _NotesPageState extends State<NotesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        // appBar: AppBar(
-        //   title: Text(context.navBarNotes),
-        // ),
-        body: SafeArea(
+    return Scaffold(body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth > 600) {
@@ -174,8 +169,10 @@ class _NotesPageState extends State<NotesPage> {
                     context,
                     MaterialPageRoute(
                         builder: (context) => BookNotesPage(
-                            book: snapshot.data!,
-                            numberOfNotes: numberOfNotes)),
+                              book: snapshot.data!,
+                              numberOfNotes: numberOfNotes,
+                              isMobile: true,
+                            )),
                   );
                 } else {
                   Provider.of<NotesDetailModel>(context, listen: false)
@@ -226,7 +223,9 @@ class _NotesPageState extends State<NotesPage> {
                       ),
                       // Expanded(child: SizedBox()),
                       Hero(
-                        tag: snapshot.data!.coverFullPath,
+                        tag: isMobile
+                            ? snapshot.data!.coverFullPath
+                            : '${snapshot.data!.coverFullPath}notMobile',
                         child: bookCover(
                           context,
                           snapshot.data!,
@@ -267,7 +266,9 @@ class NotesDetailModel with ChangeNotifier {
     return currentBook == null
         ? const Center(child: NotesTips())
         : BookNotesPage(
-            book: currentBook!, numberOfNotes: currentNumberOfNotes);
+            isMobile: false,
+            book: currentBook!,
+            numberOfNotes: currentNumberOfNotes);
   }
 
   void updateCurrentBook(Book book, int numberOfNotes) {

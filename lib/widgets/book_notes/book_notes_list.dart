@@ -1,17 +1,23 @@
 import 'package:anx_reader/dao/book_note.dart';
+import 'package:anx_reader/enums/sync_direction.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/page/reading_page.dart';
+import 'package:anx_reader/providers/anx_webdav.dart';
 import 'package:anx_reader/service/book.dart';
+import 'package:anx_reader/utils/time_to_human.dart';
+import 'package:anx_reader/widgets/book_share/excerpt_share_service.dart';
 import 'package:anx_reader/widgets/delete_confirm.dart';
-import 'package:anx_reader/widgets/excerpt_menu.dart';
+import 'package:anx_reader/widgets/context_menu/excerpt_menu.dart';
 import 'package:anx_reader/widgets/tips/notes_tips.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:sticky_headers/sticky_headers.dart';
 
-class BookNotesList extends StatefulWidget {
+class BookNotesList extends ConsumerStatefulWidget {
   const BookNotesList({
     super.key,
     required this.book,
@@ -25,10 +31,10 @@ class BookNotesList extends StatefulWidget {
       exportNotes;
 
   @override
-  State<BookNotesList> createState() => _BookNotesListState();
+  ConsumerState<BookNotesList> createState() => _BookNotesListState();
 }
 
-class _BookNotesListState extends State<BookNotesList> {
+class _BookNotesListState extends ConsumerState<BookNotesList> {
   List<BookNote> bookNotes = [];
   List<BookNote> showNotes = [];
   List<BookNote> selectedNotes = [];
@@ -43,6 +49,14 @@ class _BookNotesListState extends State<BookNotesList> {
     _loadBookNotes();
   }
 
+  @override
+  void didUpdateWidget(covariant BookNotesList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.book.id != widget.book.id) {
+      _loadBookNotes();
+    }
+  }
+
   Future<void> _loadBookNotes() async {
     List<BookNote> notes = await selectBookNotesByBookId(widget.book.id);
     setState(() {
@@ -51,8 +65,127 @@ class _BookNotesListState extends State<BookNotesList> {
     });
   }
 
+  void _editBookNote(BuildContext context, BookNote bookNote) {
+    String currentType = bookNote.type;
+    String currentColor = bookNote.color;
+    String? currentNote = bookNote.readerNote;
+
+    TextEditingController noteController =
+        TextEditingController(text: currentNote);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 16),
+                      child: Text(bookNote.content),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: notesType.map((type) {
+                              return IconButton(
+                                icon: Icon(
+                                  type['icon'],
+                                  color: currentType == type['type']
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    currentType = type['type'];
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: notesColors.map((color) {
+                              return IconButton(
+                                icon: Icon(
+                                  currentColor == color
+                                      ? EvaIcons.checkmark_circle_2
+                                      : Icons.circle,
+                                  color: Color(int.parse('0x99$color')),
+                                  size: 30,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    currentColor = color;
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextField(
+                        controller: noteController,
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          hintText: L10n.of(context).context_menu_add_note_tips,
+                        ),
+                        maxLines: 3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(L10n.of(context).common_cancel),
+                ),
+                TextButton(
+                  onPressed: () {
+                    BookNote updatedNote = BookNote(
+                      id: bookNote.id,
+                      bookId: bookNote.bookId,
+                      content: bookNote.content,
+                      cfi: bookNote.cfi,
+                      chapter: bookNote.chapter,
+                      type: currentType,
+                      color: currentColor,
+                      readerNote: noteController.text.trim(),
+                      createTime: bookNote.createTime,
+                      updateTime: DateTime.now(),
+                    );
+                    updateBookNoteById(updatedNote);
+                    AnxWebdav().syncData(SyncDirection.upload, ref);
+                    _loadBookNotes();
+                    Navigator.pop(context);
+                  },
+                  child: Text(L10n.of(context).common_save),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget bookNoteItem(BuildContext context, BookNote bookNote, bool selected) {
     Color iconColor = Color(int.parse('0xaa${bookNote.color}'));
+    TextStyle infoStyle = const TextStyle(
+      fontSize: 14,
+      color: Colors.grey,
+    );
     return GestureDetector(
       onTap: () {
         if (selectedNotes.isNotEmpty) {
@@ -67,7 +200,7 @@ class _BookNotesListState extends State<BookNotesList> {
           if (widget.reading) {
             epubPlayerKey.currentState!.goToCfi(bookNote.cfi);
           } else {
-            pushToReadingPage(context, widget.book, cfi: bookNote.cfi);
+            pushToReadingPage(ref, context, widget.book, cfi: bookNote.cfi);
           }
         }
       },
@@ -81,6 +214,7 @@ class _BookNotesListState extends State<BookNotesList> {
         });
       },
       child: Card(
+        shadowColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -103,16 +237,53 @@ class _BookNotesListState extends State<BookNotesList> {
                         fontSize: 16,
                       ),
                     ),
+                    if (bookNote.readerNote != null &&
+                        bookNote.readerNote!.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 4),
+                          IntrinsicHeight(
+                            child: Row(
+                              children: [
+                                const VerticalDivider(
+                                  thickness: 3,
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    bookNote.readerNote!,
+                                    style: infoStyle.copyWith(
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
                     Divider(
                       indent: 4,
                       height: 3,
                       color: Colors.grey.shade300,
                     ),
-                    Text(
-                      bookNote.chapter,
-                      style: const TextStyle(
-                        fontSize: 14,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            bookNote.chapter,
+                            style: infoStyle,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          timeToHuman(bookNote.createTime, context),
+                          style: infoStyle,
+                        )
+                      ],
                     ),
                   ],
                 ),
@@ -411,6 +582,7 @@ class _BookNotesListState extends State<BookNotesList> {
           for (int i = 0; i < selectedNotes.length; i++) {
             deleteBookNoteById(selectedNotes[i].id!);
           }
+          AnxWebdav().syncData(SyncDirection.upload, ref);
           setState(() {
             selectedNotes.clear();
             _loadBookNotes();
@@ -442,6 +614,42 @@ class _BookNotesListState extends State<BookNotesList> {
     );
   }
 
+  Widget slidbleNotes(Widget child, BookNote bookNote) {
+    ActionPane actionPane = ActionPane(
+      motion: const StretchMotion(),
+      children: [
+        SlidableAction(
+          onPressed: (context) {
+            ExcerptShareService.showShareExcerpt(
+              context: context,
+              bookTitle: widget.book.title,
+              author: widget.book.author,
+              excerpt: bookNote.content,
+              chapter: bookNote.chapter,
+            );
+          },
+          icon: Icons.share,
+          label: L10n.of(context).reading_page_share_share,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        SlidableAction(
+          onPressed: (context) {
+            _editBookNote(context, bookNote);
+          },
+          icon: Icons.edit,
+          label: L10n.of(context).common_edit,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+      ],
+    );
+    return Slidable(
+      key: ValueKey(bookNote.id),
+      startActionPane: actionPane,
+      endActionPane: actionPane,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -457,7 +665,10 @@ class _BookNotesListState extends State<BookNotesList> {
                 )
               : Column(
                   children: showNotes.map((bookNote) {
-                    return bookNoteItem(context, bookNote, false);
+                    return slidbleNotes(
+                      bookNoteItem(context, bookNote, false),
+                      bookNote,
+                    );
                   }).toList(),
                 ),
         ),
